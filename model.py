@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+from MultiheadAttention import MultiheadAttentionBlock
 
 
 class InputEmbeddings(nn.Module):
@@ -72,3 +73,13 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
+
+
+class ResidualConnection(nn.Module):
+    def __init__(self, dropout: float) -> None:
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.norm = LayerNormalization()
+
+    def forward(self, x, sublayer):
+        return x + self.dropout(sublayer(self.norm(x)))
