@@ -58,7 +58,7 @@ class LayerNormalization(nn.Module):
         super().__init__()
         self.eps = eps
         self.alpha = nn.Parameter(torch.ones(1))
-        self.bias - nn.Parameter(torch.zeros(1))
+        self.bias = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True)
@@ -109,8 +109,8 @@ class Transformer(nn.Module):
         projection_layer: ProjectionLayer,
     ):
         super().__init__()
-        self.encoder = Encoder
-        self.decoder = Decoder
+        self.encoder = encoder
+        self.decoder = decoder
         self.src_embed = src_embed
         self.target_embedding = target_embedding
         self.src_position = src_position
@@ -123,7 +123,7 @@ class Transformer(nn.Module):
         return self.encoder(src, src_mask)
 
     def decoder(self, encoder_output, src_mask, target, target_mask):
-        taget = self.target_embedding(target)
+        target = self.target_embedding(target)
         target = self.target_position(target)
         return self.decoder(target, encoder_output, src_mask, target_mask)
 
