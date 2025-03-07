@@ -19,53 +19,108 @@ import warnings
 
 def get_sentences(ds, lang):
     for item in ds:
+        # print(item)
         yield item['translation'][lang]
 
 
 def build_tokenizer(config, ds, lang):
     tokenizer_path = Path(config['tokenizer_file'].format(lang))
-    if not Path.exits(tokenizer_path):
+    if not Path.exists(tokenizer_path):
         tokenizer = Tokenizer(WordLevel(unk_token="[UNK]"))
         tokenizer.pre_tokenizer = Whitespace()
-        trainer = WordLevelTrainer(special_tokens = ["UNK", "PAD", "SOS", "EOS"], min_frequency = 2)
+        trainer = WordLevelTrainer(special_tokens = ["[UNK]", "[PAD]", "[SOS]", "[EOS]"], min_frequency = 2)
         tokenizer.train_from_iterator(get_sentences(ds, lang), trainer = trainer)
         tokenizer.save(str(tokenizer_path))
     else:
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
 
+def clean_text(text):
+    text = text.split("Source:")[0].strip()  # Remove metadata if present
+    return text if text else "[UNK]"
 
 def get_dataset(config):
-    data_raw = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}')
+    data_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
+
+    print("Sample dataset item before preprocessing:", data_raw[0])
+
+    # Remove dataset entries missing 'translation' key or expected language data
+    cleaned_data = [
+        item for item in data_raw
+        if "translation" in item and config["lang_src"] in item["translation"] and config["lang_tgt"] in item["translation"]
+    ]
+
+    if not cleaned_data:
+        raise ValueError("Dataset is empty after filtering. Ensure dataset format is correct.")
+
+    print(f"Dataset size after filtering: {len(cleaned_data)}")
 
     # Build tokenizers
-    tokenizer_source = build_tokenizer(config, data_raw, config["lang_src"])
-    tokenizer_target = build_tokenizer(config, data_raw, config["lang_tgt"])
+    tokenizer_source = build_tokenizer(config, cleaned_data, config["lang_src"])
+    tokenizer_target = build_tokenizer(config, cleaned_data, config["lang_tgt"])
 
-    train_size = int(0.8 *len(data_raw))
-    val_size = len(data_raw) - train_size
+    # Perform train-validation split
+    train_size = int(0.8 * len(cleaned_data))
+    val_size = len(cleaned_data) - train_size
+    train_raw, val_raw = random_split(cleaned_data, [train_size, val_size])
 
-    train_raw, val_raw = random_split(data_raw, [train_size, val_size])
+    # Convert Subset objects back to lists
+    train_raw = [cleaned_data[i] for i in train_raw.indices]
+    val_raw = [cleaned_data[i] for i in val_raw.indices]
 
     train_ds = BilingualDataset(train_raw, tokenizer_source, tokenizer_target, config["lang_src"], config["lang_tgt"], config["seq_len"])
     val_ds = BilingualDataset(val_raw, tokenizer_source, tokenizer_target, config["lang_src"], config["lang_tgt"], config["seq_len"])
-
-    max_len_src = 0
-    max_len_tgt = 0
-
-    for item in train_ds:
-        src_ids = tokenizer_source.encode(item['translation'][config["lang_src"]]).ids
-        tgt_ids = tokenizer_target.encode(item['translation'][config["lang_tgt"]]).ids
-        max_len_src = max(max_len_src, len(src_ids))
-        max_len_tgt = max(max_len_tgt, len(tgt_ids))
-
-    print(f"Max source length: {max_len_src}")
-    print(f"Max target length: {max_len_tgt}")
 
     train_dataloader = DataLoader(train_ds, batch_size=config["batch_size"], shuffle=True)
     val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
 
     return train_dataloader, val_dataloader, tokenizer_source, tokenizer_target
+
+
+# def get_dataset(config):
+#     # data_raw = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}')
+#     data_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
+#     print("Sample dataset item:", data_raw[0])
+#     ##############################################
+#     # data_raw = data_raw['train']
+#     ##############################################
+
+#     for item in data_raw:
+#         if "translation" in item:
+#             item["translation"][config["lang_src"]] = clean_text(item["translation"].get(config["lang_src"], ""))
+#             item["translation"][config["lang_tgt"]] = clean_text(item["translation"].get(config["lang_tgt"], ""))
+
+#     # Build tokenizers
+#     tokenizer_source = build_tokenizer(config, data_raw, config["lang_src"])
+#     tokenizer_target = build_tokenizer(config, data_raw, config["lang_tgt"])
+
+#     train_size = int(0.8 *len(data_raw))
+#     val_size = len(data_raw) - train_size
+
+#     train_raw, val_raw = random_split(data_raw, [train_size, val_size])
+
+#     train_ds = BilingualDataset(train_raw, tokenizer_source, tokenizer_target, config["lang_src"], config["lang_tgt"], config["seq_len"])
+#     val_ds = BilingualDataset(val_raw, tokenizer_source, tokenizer_target, config["lang_src"], config["lang_tgt"], config["seq_len"])
+
+#     max_len_src = 0
+#     max_len_tgt = 0
+
+#     for item in train_ds:
+#         # print(f"DEBUG item: {item}")
+#         src_ids = tokenizer_source.encode(item['translation'][config["lang_src"]]).ids
+#         tgt_ids = tokenizer_target.encode(item['translation'][config["lang_tgt"]]).ids
+#         # src_ids = item['encoder_input'].tolist()
+#         # tgt_ids = item['decoder_input'].tolist()
+#         max_len_src = max(max_len_src, len(src_ids))
+#         max_len_tgt = max(max_len_tgt, len(tgt_ids))
+
+#     print(f"Max source length: {max_len_src}")
+#     print(f"Max target length: {max_len_tgt}")
+
+#     train_dataloader = DataLoader(train_ds, batch_size=config["batch_size"], shuffle=True)
+#     val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
+
+#     return train_dataloader, val_dataloader, tokenizer_source, tokenizer_target
 
 
 def get_model(config, vocab_src_len, vocab_target_len):
@@ -76,7 +131,7 @@ def train_model(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cpu":
-        RuntimeError("No GPU found. Please use a GPU to train the Transformer.")
+        raise RuntimeError("No GPU found. Please use a GPU to train the Transformer.")
     print(f'Using device: {device}')
 
     Path(config["model_folder"]).mkdir(exist_ok=True)
@@ -110,6 +165,10 @@ def train_model(config):
             decoder_input = batch['decoder_input'].to(device)
             encoder_mask = batch['encoder_mask'].to(device)
             decoder_mask = batch['decoder_mask'].to(device)
+
+
+            # encoder_input = model.src_embed(encoder_input)  # Convert token IDs to embeddings
+            # decoder_input = model.target_embedding(decoder_input)
 
             # (B, S, V)
             encoder_output = model.encoder(encoder_input, encoder_mask)

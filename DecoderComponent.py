@@ -2,12 +2,11 @@ import torch
 import torch.nn as nn
 import math
 from MultiheadAttention import MultiheadAttentionBlock
-from model import FeedForward
-from model import LayerNormalization
-from model import ResidualConnection
+from layers import FeedForward, LayerNormalization, ResidualConnection
 
 
 class DecoderBlock(nn.Module):
+
     def __init__(
         self,
         self_attention: MultiheadAttentionBlock,
@@ -36,6 +35,7 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
+    
     def __init__(self, layers: nn.ModuleList) -> None:
         super().__init__()
         self.layers = layers

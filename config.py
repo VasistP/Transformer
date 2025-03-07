@@ -5,15 +5,16 @@ def get_config():
         "batch_size": 8,
         "num_epochs": 20,
         "lr": 1e-3,
-        "seq`:len": 350,
+        "seq_len": 350,
         "d_model": 512,
         "lang_src": "en",
-        "lang_tgt": "de",
+        "lang_tgt": "es",
         "model_folder": "trained_weights",
         "model_filename": "tmodel_",
         "preload": None,
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": "transformer/runs/tmodel",
+        "datasource": "opus_books"
     }
 
 def get_weights(config, epoch: str):
