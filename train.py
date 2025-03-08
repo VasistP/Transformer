@@ -139,21 +139,24 @@ def get_model(config, vocab_src_len, vocab_target_len):
     return model
 
 def train_model(config):
-
+    import os
+    from pathlib import Path
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device.type == "cpu":
-        raise RuntimeError("No GPU found. Please use a GPU to train the Transformer.")
     print(f'Using device: {device}')
 
-    # Path(config["model_folder"]).mkdir(exist_ok=True)
-    Path(f"{config['datasource']}_{config['model_folder']}").mkdir(parents=True, exist_ok=True)
-
+    # Create model folder
+    weights_dir = Path(config["model_folder"])
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save checkpoints every N epochs
+    checkpoint_interval = 1  # Save after every epoch
+    
     train_dataloader, val_dataloader, tokenizer_source, tokenizer_target = get_dataset(config)
     model = get_model(config, tokenizer_source.get_vocab_size(), tokenizer_target.get_vocab_size()).to(device)
 
     writer = SummaryWriter(config["experiment_name"])
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], eps= 1e-9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], eps=1e-9)
 
     initial_epoch = 0
     global_step = 0
@@ -162,10 +165,64 @@ def train_model(config):
         model_filename = get_weights(config, config['preload'])
         print(f'Loading weights from {model_filename}')
         state = torch.load(model_filename)
+        model.load_state_dict(state['model_state_dict'])
         initial_epoch = state['epoch'] + 1
-        optimizer.load_state_dict(state['optimizer'])
+        optimizer.load_state_dict(state['optimizer_state_dict'])
         global_step = state['global_step']
 
+    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer_source.token_to_id("[PAD]"), label_smoothing=0.1).to(device)
+
+    for epoch in range(initial_epoch, config['num_epochs']):
+        torch.cuda.empty_cache()
+        model.train()
+        batch_iterator = tqdm(train_dataloader, desc=f"Processing Epoch {epoch:02d}")
+        
+        epoch_loss = 0
+        batch_count = 0
+        
+        for batch in batch_iterator:
+            batch_count += 1
+            encoder_input = batch['encoder_input'].to(device)
+            decoder_input = batch['decoder_input'].to(device)
+            encoder_mask = batch['encoder_mask'].to(device)
+            decoder_mask = batch['decoder_mask'].to(device)
+
+            # Forward pass
+            encoder_output = model.encode(encoder_input, encoder_mask)
+            decoder_output = model.decode(encoder_output, encoder_mask, decoder_input, decoder_mask)
+            proj_output = model.project(decoder_output)
+
+            label = batch['label'].to(device)
+            loss = criterion(proj_output.view(-1, tokenizer_target.get_vocab_size()), label.view(-1))
+            
+            # Update loss tracking
+            epoch_loss += loss.item()
+            batch_iterator.set_postfix({f'loss': f"{loss.item():.4f}", 'avg_loss': f"{epoch_loss/batch_count:.4f}"})
+
+            # Log to TensorBoard
+            writer.add_scalar('train_loss', loss.item(), global_step)
+            writer.flush()
+
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+
+            global_step += 1
+
+        # Save model after each checkpoint_interval
+        if epoch % checkpoint_interval == 0:
+            model_filename = os.path.join(config["model_folder"], f"{config['model_basename']}{epoch:02d}.pt")
+            print(f"Saving model checkpoint to {model_filename}")
+            
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'global_step': global_step,
+                'loss': epoch_loss / batch_count,
+            }, model_filename)
+"""
     # preload = config['preload']
     # model_filename = latest_weights_file_path(config) if preload == 'latest' else get_weights_file_path(config, preload) if preload else None
     # if model_filename:
@@ -227,6 +284,8 @@ def train_model(config):
             'optimizer_state_dict': optimizer.state_dict(),
             'global_step': global_step
         }, model_filename)
+"""
+
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
