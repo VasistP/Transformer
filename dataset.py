@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
+from typing import Any
 # from model import 
 
 
@@ -29,14 +30,17 @@ class BilingualDataset(Dataset):
         src_text = src_target_pair["translation"][self.lang_src]
         tgt_text = src_target_pair["translation"][self.lang_tgt]
 
-        enc_input_tokens = self.tokenizer_source.encode(src_text).ids # Check if this is correct
-        dec_input_tokens = self.tokenizer_target.encode(tgt_text).ids
+        enc_input_tokens = self.tokenizer_source.encode(src_text).ids[:self.seq_len-2] # Check if this is correct
+        dec_input_tokens = self.tokenizer_target.encode(tgt_text).ids[:self.seq_len-1]
 
         enc_num_padding = self.seq_len - len(enc_input_tokens) - 2 # -2 for SOS and EOS tokens
         dec_num_padding = self.seq_len - len(dec_input_tokens) - 1 # -1 for SOS token
 
-        if enc_num_padding < 0 or dec_num_padding < 0:
-            raise ValueError("Sequence length is too long")
+        # if enc_num_padding < 0 or dec_num_padding < 0:
+        #     raise ValueError("Sequence length is too long")
+
+        enc_num_padding = max(enc_num_padding, 0)
+        dec_num_padding = max(dec_num_padding, 0)
 
         # Adding SOS, EOS and padding tokens
         enc_input = torch.cat(

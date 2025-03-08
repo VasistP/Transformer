@@ -9,6 +9,7 @@ class DecoderBlock(nn.Module):
 
     def __init__(
         self,
+        features: int,
         self_attention: MultiheadAttentionBlock,
         cross_attention: MultiheadAttentionBlock,
         feed_forward: FeedForward,
@@ -20,7 +21,7 @@ class DecoderBlock(nn.Module):
         self.feed_forward = feed_forward
 
         self.residual_connections = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(3)]
+            [ResidualConnection(features,dropout) for _ in range(3)]
         )
 
     def forward(self, x, encoder_out, src_mask, target_mask):
@@ -35,11 +36,11 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    
-    def __init__(self, layers: nn.ModuleList) -> None:
+
+    def __init__(self, features: int, layers: nn.ModuleList) -> None:
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, encoder_out, src_mask, target_mask):
         for layer in self.layers:

@@ -35,9 +35,9 @@ def build_tokenizer(config, ds, lang):
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
 
-# def clean_text(text):
-#     text = text.split("Source:")[0].strip()  # Remove metadata if present
-#     return text if text else "[UNK]"
+def clean_text(text):
+    text = text.split("Source:")[0].strip()  # Remove metadata if present
+    return text if text else "[UNK]"
 
 # def get_dataset(config):
 #     data_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
@@ -78,17 +78,16 @@ def build_tokenizer(config, ds, lang):
 
 
 def get_dataset(config):
-    # data_raw = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}')
+
     data_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
     print("Sample dataset item:", data_raw[0])
-    ##############################################
-    # data_raw = data_raw['train']
-    ##############################################
+    # Example of a dataset item:
+    # {'id': '0', 'translation': {'en': 'Source: Project GutenbergAudiobook available here', 'es': 'Source: Wikisource & librodot.com'}}
 
-    # for item in data_raw:
-    #     if "translation" in item:
-    #         item["translation"][config["lang_src"]] = clean_text(item["translation"].get(config["lang_src"], ""))
-    #         item["translation"][config["lang_tgt"]] = clean_text(item["translation"].get(config["lang_tgt"], ""))
+    for item in data_raw:
+        if "translation" in item:
+            item["translation"][config["lang_src"]] = clean_text(item["translation"].get(config["lang_src"], ""))
+            item["translation"][config["lang_tgt"]] = clean_text(item["translation"].get(config["lang_tgt"], ""))
 
     # Build tokenizers
     tokenizer_source = build_tokenizer(config, data_raw, config["lang_src"])
@@ -107,10 +106,17 @@ def get_dataset(config):
 
     for item in train_ds:
         # print(f"DEBUG item: {item}")
-        src_ids = tokenizer_source.encode(item['translation'][config["lang_src"]]).ids
-        tgt_ids = tokenizer_target.encode(item['translation'][config["lang_tgt"]]).ids
-        # src_ids = item['encoder_input'].tolist()
-        # tgt_ids = item['decoder_input'].tolist()
+        ############################
+        src_text = item['src_text']
+        tgt_text = item['tgt_text']
+        src_ids = tokenizer_source.encode(src_text).ids
+        tgt_ids = tokenizer_target.encode(tgt_text).ids
+        ############################
+
+        # Prev code
+        # src_ids = tokenizer_source.encode(item['translation'][config["lang_src"]]).ids
+        # tgt_ids = tokenizer_target.encode(item['translation'][config["lang_tgt"]]).ids
+
         max_len_src = max(max_len_src, len(src_ids))
         max_len_tgt = max(max_len_tgt, len(tgt_ids))
 
