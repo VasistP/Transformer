@@ -17,6 +17,11 @@ from tokenizers.pre_tokenizers import Whitespace
 from pathlib import Path
 import warnings
 
+import torch
+print(torch.cuda.is_available())  # Should print True
+print(torch.cuda.device_count())  # Should show number of GPUs
+print(torch.cuda.get_device_name(0))  # Should show your GPU name
+
 def get_sentences(ds, lang):
     for item in ds:
         # print(item)

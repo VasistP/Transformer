@@ -10,7 +10,7 @@ def get_config():
         "lang_src": "en",
         "lang_tgt": "es",
         "model_folder": "trained_weights",
-        "model_filename": "tmodel_",
+        "model_basename": "tmodel_",  # Changed from model_filename to model_basename
         "preload": None,
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": "transformer/runs/tmodel",
@@ -18,8 +18,8 @@ def get_config():
     }
 
 def get_weights(config, epoch: str):
-    model_folder = config["model_folder"],
-    model_basename = config["model_basename"],
+    model_folder = config["model_folder"]  # Removed trailing comma
+    model_basename = config["model_basename"]  # Removed trailing comma
     model_filename = f"{model_basename}{epoch}.pt"
 
-    return str(Path('.')/model_folder/model_filename)
+    return str(Path('.') / model_folder / model_filename)
