@@ -5,6 +5,7 @@ from layers import FeedForward, LayerNormalization, ResidualConnection
 class EncoderBlock(nn.Module):
     def __init__(
         self,
+        d_model: int,  # Added to match the call in build_transformer
         self_attention: MultiheadAttentionBlock,
         feed_forward: FeedForward,
         dropout: float,
@@ -24,7 +25,7 @@ class EncoderBlock(nn.Module):
 
 class Encoder(nn.Module):
     
-    def __init__(self, layers: nn.ModuleList) -> None:
+    def __init__(self, d_model: int, layers: nn.ModuleList) -> None:  # Added d_model parameter
         super().__init__()
         self.layers = layers
         self.norm = LayerNormalization()
