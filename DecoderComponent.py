@@ -10,6 +10,7 @@ class DecoderBlock(nn.Module):
     def __init__(
         self,
         d_model: int,  # Added parameter to match call in build_transformer
+
         self_attention: MultiheadAttentionBlock,
         cross_attention: MultiheadAttentionBlock,
         feed_forward: FeedForward,
@@ -21,7 +22,7 @@ class DecoderBlock(nn.Module):
         self.feed_forward = feed_forward
 
         self.residual_connections = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(3)]
+            [ResidualConnection(features,dropout) for _ in range(3)]
         )
 
     def forward(self, x, encoder_out, src_mask, target_mask):
@@ -40,7 +41,7 @@ class Decoder(nn.Module):
     def __init__(self, d_model: int, layers: nn.ModuleList) -> None:  # Added d_model parameter
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, encoder_out, src_mask, target_mask):
         for layer in self.layers:
