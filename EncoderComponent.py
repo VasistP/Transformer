@@ -15,7 +15,7 @@ class EncoderBlock(nn.Module):
         super().__init__()
         self.self_attention = self_attention
         self.feed_forward = feed_forward
-        self.residual_connections = nn.ModuleList([ResidualConnection(features,dropout) for _ in range(2)])
+        self.residual_connections = nn.ModuleList([ResidualConnection(d_model,dropout) for _ in range(2)])
 
     def forward(self, x, src_mask):
         x = self.residual_connections[0](
@@ -32,7 +32,7 @@ class Encoder(nn.Module):
 
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization(features)
+        self.norm = LayerNormalization(d_model)
 
     def forward(self, x, mask):
         for layer in self.layers:

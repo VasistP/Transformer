@@ -22,7 +22,7 @@ class DecoderBlock(nn.Module):
         self.feed_forward = feed_forward
 
         self.residual_connections = nn.ModuleList(
-            [ResidualConnection(features,dropout) for _ in range(3)]
+            [ResidualConnection(d_model,dropout) for _ in range(3)]
         )
 
     def forward(self, x, encoder_out, src_mask, target_mask):
@@ -41,7 +41,7 @@ class Decoder(nn.Module):
     def __init__(self, d_model: int, layers: nn.ModuleList) -> None:  # Added d_model parameter
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization(features)
+        self.norm = LayerNormalization(d_model)
 
     def forward(self, x, encoder_out, src_mask, target_mask):
         for layer in self.layers:
